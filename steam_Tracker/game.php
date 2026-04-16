@@ -93,17 +93,63 @@ new Chart(document.getElementById('priceChart'), {
     options: opt
 });
 
-// Review History Chart
+// Review Chart (Bi-directional Bar Chart)
 new Chart(document.getElementById('reviewChart'), {
-    type: 'line',
+    type: 'bar', // Changed from 'line' to 'bar'
     data: {
-        labels: <?php echo json_encode($rh_dates); ?>,
+        labels: <?php echo json_encode($r_dates); ?>,
         datasets: [
-            { label: 'Positives', data: <?php echo json_encode($rh_pos); ?>, borderColor: '#2ecc71', tension: 0.3 },
-            { label: 'Negatives', data: <?php echo json_encode($rh_neg); ?>, borderColor: '#e74c3c', tension: 0.3 }
+            {
+                label: 'Positive Reviews',
+                data: <?php echo json_encode($r_pos); ?>,
+                backgroundColor: '#2ecc71',
+                borderColor: '#27ae60',
+                borderWidth: 1
+            },
+            {
+                label: 'Negative Reviews',
+                // Map the data to negative values so they grow downwards
+                data: <?php echo json_encode(array_map(function($v) { return -$v; }, $r_neg)); ?>,
+                backgroundColor: '#e74c3c',
+                borderColor: '#c0392b',
+                borderWidth: 1
+            }
         ]
     },
-    options: opt
+    options: {
+        ...commonOptions,
+        scales: {
+            x: {
+                ...commonOptions.scales.x,
+                stacked: true // Stack bars on the same x-axis point
+            },
+            y: {
+                ...commonOptions.scales.y,
+                stacked: true,
+                ticks: {
+                    color: '#889297',
+                    // Optional: Format labels to show absolute values (remove negative sign)
+                    callback: function(value) {
+                        return Math.abs(value);
+                    }
+                }
+            }
+        },
+        plugins: {
+            ...commonOptions.plugins,
+            tooltip: {
+                callbacks: {
+                    // Correct the tooltip so it doesn't show a negative sign for bad reviews
+                    label: function(context) {
+                        let label = context.dataset.label || '';
+                        if (label) label += ': ';
+                        label += Math.abs(context.parsed.y);
+                        return label;
+                    }
+                }
+            }
+        }
+    }
 });
 </script>
 </body>
