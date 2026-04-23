@@ -4,13 +4,14 @@ set_time_limit(0);
 
 $directory = "data/";
 
+// Defensive check: Ensure the data folder actually exists
 if (!is_dir($directory)) {
-    die("Error: The '$directory' folder does not exist.");
+    die("Error: The '$directory' folder does not exist. Please create it and add your CSV files.");
 }
 
 $files = scandir($directory);
 
-// We added $type to the function so it knows WHICH file it is reading
+// The upgraded function that knows WHICH file it is reading
 function updateGame($conn, $name, $tags, $type) {
     // Clean the name (handles both "Baldur's_Gate_3" and "Baldur's Gate 3")
     $clean_name = mysqli_real_escape_string($conn, str_replace('_', ' ', $name));
@@ -21,7 +22,7 @@ function updateGame($conn, $name, $tags, $type) {
     if ($row = mysqli_fetch_assoc($res)) {
         $gid = $row['id'];
         
-        // BUG FIX: Only update the category if we are reading a reviews file!
+        // THE FIX: Only update the category if we are reading a reviews file!
         // This prevents the prices.csv from overwriting categories with "General"
         if ($type == 'reviews' && $tags != 'General') {
             mysqli_query($conn, "UPDATE games SET category = '$clean_tags' WHERE id = $gid");
@@ -52,7 +53,7 @@ foreach ($files as $file) {
             $game_id = updateGame($conn, $name, $tags, $type);
             $date = date('Y-m-d', strtotime($data[0]));
             
-            // Insert Price or Review Data
+            // Insert Price or Review Data into the correct InnoDB tables
             if (strpos($type, 'price') !== false) {
                 mysqli_query($conn, "INSERT INTO price_history (game_id, price_date, price) VALUES ($game_id, '$date', '$data[1]')");
             } else {
@@ -63,5 +64,5 @@ foreach ($files as $file) {
     }
 }
 
-echo "Import Complete! Categories have been safely preserved.";
+echo "Import Complete! Your database is populated and your categories have been safely preserved.";
 ?>

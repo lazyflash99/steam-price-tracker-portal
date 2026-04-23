@@ -7,6 +7,7 @@ $game_res = mysqli_query($conn, "SELECT * FROM games WHERE id = $id");
 $game = mysqli_fetch_assoc($game_res);
 if (!$game) die("Game Not Found");
 
+// Buy Score
 $buy_score = getBuyScore($conn, $id);
 
 // 1. Data Fetching for Charts
@@ -35,14 +36,29 @@ while($r = mysqli_fetch_assoc($rh_res)) { $rh_dates[] = $r['review_date']; $rh_p
 <!DOCTYPE html>
 <html>
 <head>
-    <title><?php echo $game['name']; ?></title>
+    <title><?php echo htmlspecialchars($game['name']); ?></title>
     <link rel="stylesheet" href="css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 <div class="container">
     <a href="index.php" class="btn-reset">← Back</a>
-    <h1 style="font-size: 48px; margin: 20px 0; color: #fff;"><?php echo strtoupper($game['name']); ?></h1>
+    
+    <h1 style="font-size: 48px; margin: 20px 0 5px 0; color: #fff;">
+        <?php echo strtoupper(htmlspecialchars($game['name'])); ?>
+    </h1>
+
+    <div style="margin-bottom: 25px;">
+        <?php 
+        $tags = explode('|', $game['category']);
+        foreach($tags as $tag) {
+            $clean_tag = trim($tag);
+            if(!empty($clean_tag)) {
+                echo '<span style="display:inline-block; background:#2a475e; color:#66c0f4; padding:5px 12px; border-radius:15px; margin-right:8px; font-size:14px; font-weight:bold;">' . htmlspecialchars($clean_tag) . '</span>';
+            }
+        }
+        ?>
+    </div>
 
     <div class="table-card" style="margin-bottom: 20px; padding: 25px;">
         <h3 style="margin-top:0;">Buy Recommendation Score</h3>
@@ -68,9 +84,69 @@ while($r = mysqli_fetch_assoc($rh_res)) { $rh_dates[] = $r['review_date']; $rh_p
         </div>
     </div>
 
-    <div class="table-card" style="padding: 20px;">
+    <div class="table-card" style="padding: 20px; margin-bottom: 20px;">
         <h3>Review Growth History</h3>
         <canvas id="reviewChart"></canvas>
+    </div>
+
+    <div class="table-card" style="padding: 25px; margin-bottom: 20px;">
+        <h3>Because you viewed <?php echo htmlspecialchars($game['name']); ?></h3>
+        
+        <?php
+        $tags_array = explode('|', $game['category']);
+        $primary_tag = mysqli_real_escape_string($conn, trim($tags_array[0]));
+        $current_cluster = mysqli_real_escape_string($conn, $game['cluster_label'] ?: 'Uncategorized');
+        $current_id = $game['id'];
+        
+        // --- THE WATERFALL LOGIC ---
+        
+        // Attempt 1: Perfect Match (Same Cluster AND Same Tag)
+        $rec_sql = "SELECT g.id, g.name, (SELECT price FROM price_history WHERE game_id = g.id ORDER BY price_date DESC LIMIT 1) as price 
+                    FROM games g WHERE cluster_label = '$current_cluster' AND category LIKE '%$primary_tag%' AND id != $current_id LIMIT 4";
+        $rec_res = mysqli_query($conn, $rec_sql);
+        $match_type = "pricing behavior and genre";
+
+        // Fallback 1: Just match the Genre (Tag)
+        if (mysqli_num_rows($rec_res) == 0) {
+            $rec_sql = "SELECT g.id, g.name, (SELECT price FROM price_history WHERE game_id = g.id ORDER BY price_date DESC LIMIT 1) as price 
+                        FROM games g WHERE category LIKE '%$primary_tag%' AND id != $current_id LIMIT 4";
+            $rec_res = mysqli_query($conn, $rec_sql);
+            $match_type = "similar genres ($primary_tag)";
+        }
+
+        // Fallback 2: Just match the ML Cluster (Price/Sentiment tier)
+        if (mysqli_num_rows($rec_res) == 0) {
+            $rec_sql = "SELECT g.id, g.name, (SELECT price FROM price_history WHERE game_id = g.id ORDER BY price_date DESC LIMIT 1) as price 
+                        FROM games g WHERE cluster_label = '$current_cluster' AND id != $current_id LIMIT 4";
+            $rec_res = mysqli_query($conn, $rec_sql);
+            $match_type = "similar market pricing ($current_cluster)";
+        }
+        ?>
+
+        <p style="color: #889297; font-size: 14px; margin-top: -10px; margin-bottom: 20px;">
+            Based on <?php echo htmlspecialchars($match_type); ?>
+        </p>
+
+        <div style="display: flex; gap: 20px; overflow-x: auto; padding-bottom: 10px;">
+            <?php
+            if (mysqli_num_rows($rec_res) > 0) {
+                while($rec = mysqli_fetch_assoc($rec_res)) {
+                    $rec_price = $rec['price'] ?? 0;
+                    echo '<a href="game.php?id=' . $rec['id'] . '" style="flex: 1; min-width: 200px; background: #1b2838; padding: 15px; border-radius: 8px; text-decoration: none; border: 1px solid #2a475e; transition: 0.3s;" onmouseover="this.style.borderColor=\'#66c0f4\'" onmouseout="this.style.borderColor=\'#2a475e\'">';
+                    echo '<strong style="color: #fff; display: block; margin-bottom: 10px;">' . htmlspecialchars($rec['name']) . '</strong>';
+                    
+                    if ($rec_price == 0) {
+                        echo '<span style="color: #2ecc71; font-weight: bold;">Free to Play</span>';
+                    } else {
+                        echo '<span style="color: #66c0f4; font-weight: bold;">₹' . number_format($rec_price) . '</span>';
+                    }
+                    echo '</a>';
+                }
+            } else {
+                echo '<p style="color: #889297;">Import more games to see recommendations!</p>';
+            }
+            ?>
+        </div>
     </div>
 </div>
 
