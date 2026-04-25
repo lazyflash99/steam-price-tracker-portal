@@ -106,6 +106,8 @@ MySQL SELECT query that answers the user's question.
 6. Always add LIMIT 20 unless the user explicitly asks for all rows.
 7. Use column aliases so the output is human-readable
    (e.g. SELECT name AS game_name).
+8. STRICT RULE: Use EXACTLY the correct table names defined in the schema (games, price_history, review_history). Never invent tables.
+9. STRICT RULE: Generate the SQL based ONLY on the provided schema. Do not use external web knowledge or hallucinate data.
 
 === EXAMPLE QUERIES ===
 
@@ -239,6 +241,8 @@ RULES:
    - Lower price or better value
    - Mention if one game is at a historic low price
 6. Keep your answer concise but complete — 2-5 sentences.
+7. STRICT RULE: Your answer MUST be based EXCLUSIVELY on the provided SQL Result. Do not use external web knowledge, do not search the web, and do not hallucinate facts from your pre-training data. If the answer is not in the SQL Result, state that you don't have that information in the database.
+8. CATEGORY MATCHING: If the SQL result returns a game with a pipe-delimited category string (e.g., "Exploration|Fishing|Adventure"), that game is considered a valid match for any of those individual categories. Do not claim there are no matches just because it has multiple categories.
 
 Question: {question}
 SQL Query: {query}
