@@ -290,17 +290,10 @@ def validate_query(sql: str) -> bool:
     known_tables = {"games", "price_history", "review_history"}
     return any(t in sql.lower() for t in known_tables)
 
-
-# ==========================================
-# 6. RAG PIPELINE
-# ==========================================
 MAX_RETRIES = 2
 
 
 def ask_question(user_question: str) -> str:
-    """End-to-end pipeline: question -> SQL -> execute -> answer.
-    This function can be imported and called from main.py / FastAPI.
-    """
     print(f"\n{'='*50}")
     print(f"[QUESTION] {user_question}")
     print(f"{'='*50}")
@@ -373,4 +366,4 @@ if __name__ == "__main__":
             break
 
         answer = ask_question(question)
-        print(f"\n🤖 Bot: {answer}\n")
+        print(f"\nBot: {answer}\n")
