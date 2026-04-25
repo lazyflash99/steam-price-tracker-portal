@@ -1,6 +1,7 @@
 <?php
 include 'includes/db.php';
 include 'includes/logic.php';
+require_once 'includes/auth.php';
 
 $id       = (int)$_GET['id'];
 $game_res = mysqli_query($conn,"SELECT * FROM games WHERE id=$id");
@@ -69,6 +70,18 @@ if(mysqli_num_rows($rec_res)==0){
     $match_type = "similar market pricing ($cur_cluster)";
 }
 
+
+// Wishlist & Cart status for this game
+$_uid = currentUserId();
+$_in_wishlist = false;
+$_in_cart     = false;
+if ($_uid) {
+    $_wl = mysqli_query($conn, "SELECT 1 FROM wishlist WHERE user_id=$_uid AND game_id=$id LIMIT 1");
+    $_in_wishlist = mysqli_num_rows($_wl) > 0;
+    $_ct = mysqli_query($conn, "SELECT 1 FROM cart WHERE user_id=$_uid AND game_id=$id LIMIT 1");
+    $_in_cart = mysqli_num_rows($_ct) > 0;
+}
+
 $active_nav = 'home';
 $page_title = $game['name'];
 $extra_head = '<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>';
@@ -126,6 +139,44 @@ include 'includes/header.php';
         </div>
         <div class="buy-rec-label" style="color:<?php echo $bl['color']; ?>"><?php echo $bl['label']; ?></div>
         <div class="buy-meta">All-time low: ₹<?php echo number_format($min_price,2); ?> &nbsp;·&nbsp; Score: <?php echo $buy_score; ?>/100</div>
+      </div>
+
+
+      <!-- Wishlist & Cart Actions -->
+      <div class="game-action-row">
+        <?php if(isLoggedIn()): ?>
+          <button class="btn-action-wl<?php if($_in_wishlist) echo ' active'; ?>"
+                  id="wlBtn" onclick="toggleWishlist(<?php echo $id; ?>)">
+            <svg width="15" height="15" viewBox="0 0 24 24"
+                 fill="<?php echo $_in_wishlist ? 'currentColor' : 'none'; ?>"
+                 stroke="currentColor" stroke-width="2">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+            <span id="wlLabel"><?php echo $_in_wishlist ? 'In Wishlist' : 'Add to Wishlist'; ?></span>
+          </button>
+          <button class="btn-action-cart<?php if($_in_cart) echo ' active'; ?>"
+                  id="cartBtn" onclick="toggleCart(<?php echo $id; ?>)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+            </svg>
+            <span id="cartLabel"><?php echo $_in_cart ? 'In Cart' : 'Add to Cart'; ?></span>
+          </button>
+        <?php else: ?>
+          <a href="login.php?redirect=<?php echo urlencode('game.php?id='.$id); ?>" class="btn-action-wl">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+            Sign in to Wishlist
+          </a>
+          <a href="login.php?redirect=<?php echo urlencode('game.php?id='.$id); ?>" class="btn-action-cart">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+            </svg>
+            Sign in to Add to Cart
+          </a>
+        <?php endif; ?>
       </div>
 
       <!-- Review Bar -->
@@ -224,6 +275,58 @@ new Chart(document.getElementById('reviewChart'),{
     }
   }
 });
+</script>
+
+<div id="toast-container"></div>
+<script>
+function toast(msg, type) {
+  var c = document.getElementById('toast-container');
+  var t = document.createElement('div');
+  t.className = 'toast ' + (type || 'success');
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(function(){ t.remove(); }, 3000);
+}
+
+var _wlActive   = <?php echo $_in_wishlist ? 'true' : 'false'; ?>;
+var _cartActive = <?php echo $_in_cart     ? 'true' : 'false'; ?>;
+
+function toggleWishlist(gameId) {
+  var action = _wlActive ? 'remove' : 'add';
+  fetch('wishlist_action.php', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: 'action=' + action + '&game_id=' + gameId
+  }).then(r => r.json()).then(d => {
+    if (d.success) {
+      _wlActive = !_wlActive;
+      var btn = document.getElementById('wlBtn');
+      var lbl = document.getElementById('wlLabel');
+      btn.classList.toggle('active', _wlActive);
+      btn.querySelector('svg').setAttribute('fill', _wlActive ? 'currentColor' : 'none');
+      lbl.textContent = _wlActive ? 'In Wishlist' : 'Add to Wishlist';
+      toast(_wlActive ? '\u2764 Added to wishlist' : 'Removed from wishlist');
+    }
+  });
+}
+
+function toggleCart(gameId) {
+  var action = _cartActive ? 'remove' : 'add';
+  fetch('cart_action.php', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: 'action=' + action + '&game_id=' + gameId
+  }).then(r => r.json()).then(d => {
+    if (d.success) {
+      _cartActive = !_cartActive;
+      var btn = document.getElementById('cartBtn');
+      var lbl = document.getElementById('cartLabel');
+      btn.classList.toggle('active', _cartActive);
+      lbl.textContent = _cartActive ? 'In Cart' : 'Add to Cart';
+      toast(_cartActive ? '\ud83d\uded2 Added to cart' : 'Removed from cart');
+    }
+  });
+}
 </script>
 </body>
 </html>

@@ -1,7 +1,16 @@
+# Web server
 fastapi
 uvicorn[standard]
+
+# LangChain + HuggingFace
 langchain
 langchain_community
 langchain_huggingface
-python-dotenv
+langchain_core
+
+# Database
 mysql-connector-python
+sqlalchemy
+
+# Utilities
+python-dotenv
