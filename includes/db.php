@@ -1,11 +1,48 @@
 <?php
 
-$conn = mysqli_connect("localhost", "root", "", "steam_tracker");
+$host = getenv('DB_HOST') ?: 'localhost';
+$port = getenv('DB_PORT') ?: '3306';
+$user = getenv('DB_USER') ?: 'root';
+$pass = getenv('DB_PASS') ?: '';
+$db   = getenv('DB_NAME') ?: 'steam_tracker';
+
+$conn = mysqli_connect($host, $user, $pass, $db, $port);
 
 if (!$conn) {
     die("Connection failed: " . mysqli_connect_error());
 }
 
+// Ensure database schema exists
+mysqli_query($conn, "
+    CREATE TABLE IF NOT EXISTS games (
+        id            INT AUTO_INCREMENT PRIMARY KEY,
+        name          VARCHAR(255) NOT NULL UNIQUE,
+        category      VARCHAR(500),
+        cluster_label VARCHAR(100),
+        is_anomaly    BOOLEAN DEFAULT FALSE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+");
+
+mysqli_query($conn, "
+    CREATE TABLE IF NOT EXISTS price_history (
+        id         INT AUTO_INCREMENT PRIMARY KEY,
+        game_id    INT NOT NULL,
+        price_date DATE NOT NULL,
+        price      DECIMAL(10, 2) NOT NULL,
+        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+");
+
+mysqli_query($conn, "
+    CREATE TABLE IF NOT EXISTS review_history (
+        id          INT AUTO_INCREMENT PRIMARY KEY,
+        game_id     INT NOT NULL,
+        review_date DATE NOT NULL,
+        pos_reviews INT DEFAULT 0,
+        neg_reviews INT DEFAULT 0,
+        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+");
 
 mysqli_query($conn, "
     CREATE TABLE IF NOT EXISTS users (

@@ -5,6 +5,10 @@ require_once 'includes/db.php';
 $active_nav = 'chatbot';
 $page_title = 'AI Chat';
 $extra_head = '';
+
+// Allow overriding the RAG API URL via environment variable
+$rag_api_url = getenv('RAG_API_URL') ?: 'http://localhost:8000/chat';
+
 include 'includes/header.php';
 ?>
 
@@ -74,7 +78,7 @@ include 'includes/header.php';
   </div>
 </div>
 <script>
-var API_URL = 'http://localhost:8000/chat';
+var API_URL = '<?php echo $rag_api_url; ?>';
 
 function appendMessage(text, role) {
   var container = document.getElementById('chatMessages');
